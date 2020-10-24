@@ -1,0 +1,12 @@
+{
+  "name": "wadsworth",
+  "version": "1.0.0",
+  "main": "main.js",
+  "author": "Erik Nelson <erik@nsk.io>",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^0.20.0",
+    "cron": "^1.8.2",
+    "express": "^4.17.1"
+  }
+}
