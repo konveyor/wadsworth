@@ -1,30 +1,40 @@
 const express = require('express');
 const app = express();
+const fs = require('fs');
+
+const common = require('./common');
+
+const { JiraClient, GetJiraIssueTag } = require('./jira-client');
+
+const exGithubIssueFile = process.env['GH_ISSUE_FILE'];
+console.log(`exGithubIssueFile: ${exGithubIssueFile}`);
+
+let exGithubIssue;
+if(exGithubIssueFile) {
+  exGithubIssue = JSON.parse(fs.readFileSync(exGithubIssueFile));
+}
+
 const wwport = process.env['WADSWORTH_PORT'] || 1337;
 const wwhost = process.env['WADSWORTH_HOST'] || '0.0.0.0';
 
+const jiraUser = process.env['JIRA_USER'];
+const jiraPass = process.env['JIRA_PASS'];
+
+if(!jiraUser || !jiraPass) {
+  console.error(`ERROR: Must provide JIRA_USER and JIRA_PASS env vars`);
+  return;
+}
+
 const OPEN_ACTION = 'opened';
-const GH_ISSUE_TITLE_REGEX = /^\[(MIG-\d*)\](.*)$/;
-const TRIMMED_TITLE_INDEX = 2;
-const EXPECTED_MATCH_LENGTH = 3;
 
 app.use(express.json());
 
-//app.get('/hello', (req, res) => {
-  //res.send('world');
-//});
-
-//app.post('/ping', (req, res) => {
-  //res.status(201).json({message: 'pong'});
-//});
-
 app.post('/github-webhook-in', (req, res) => {
-  const issueTitle = req.body.issue.title;
-  const issueN = req.body.issue.number;
-  const repoName = req.body.repository.name;
-  const action = req.body.action;
-
-  console.log(`Issue trigger: ${repoName}#${issueN}:${action}`);
+  const ghi = req.body;
+  const issueTitle = ghi.issue.title;
+  const issueN = ghi.issue.number;
+  const repoName = ghi.repository.name;
+  const action = ghi.action;
 
   // Only process newly opened issues
   // TODO: Handle edited title issues
@@ -34,46 +44,56 @@ app.post('/github-webhook-in', (req, res) => {
     return;
   }
 
-  const issueTitleMatch = issueTitle.match(GH_ISSUE_TITLE_REGEX);
-  if(!issueTitleMatch) {
+  const trimmedIssueTitle = common.ExtractTrimmedGHITitle(ghi);
+  if(!trimmedIssueTitle) {
     console.log(`Skip processing. Did not match title: ${issueTitle}`);
     res.sendStatus(200);
     return;
   }
 
-  if(issueTitleMatch.length != EXPECTED_MATCH_LENGTH) {
-    console.log('ERROR: Matched on title, but did not have expected count of matches');
-    console.log(`-> Title: ${issueTitle}`);
-    console.log(`-> Match length: ${issueTitleMatch.length}`);
-    res.sendStatus(500);
-    return;
-  }
+////////////////////////////////////////////////////////////////////////////////
+// TODO:
+// 1) Fetch JIRA issue and determine if a subtask already exists for the gh event
+// 2) Create subtask for gh event if it doesn't already exist
+////////////////////////////////////////////////////////////////////////////////
 
-  const trimmedIssueTitle = issueTitleMatch[TRIMMED_TITLE_INDEX];
   res.sendStatus(201);
 });
 
-//app.listen(wwport, wwhost, () => {
-  //console.log(`Listening on ${wwhost}:${wwport}`);
-//});
-console.log(match);
-console.log(`str len: ${match.length}`);
+(async () => {
+  console.log('GH issue trigged');
 
-//const CronJob = require('cron').CronJob;
-//const Wadsworth= new require('./wadsworth');
+  const jiraId = 'MIG-357';
+  const jc = new JiraClient(jiraUser, jiraPass);
+  // const jiraIssue = await jc.FetchIssue(jiraId);
 
-//const w = new Wadsworth({
-  //ghToken: process.env['GITHUB_TOKEN'],
-  //org: 'nsk-org-sandbox',
-//});
+  // // const subtaskAlreadyExists = jiraIssue.fields.subtasks
+  // //   .map(t => t.fields.summary)
+  // //   .some(name => name.includes(jiraIssueTag(ghIssue)));
 
-//const job = new CronJob({
-  //cronTime: '* * * * *',
-  //onTick: () => w.Reconcile(),
-  //start: false,
-  //timeZone: 'America/New_York'
-//});
+  // const subtaskTitles = jiraIssue.fields.subtasks
+  //   .map(t => t.fields.summary);
 
-//job.start();
+  // console.log('Found subtask titles:');
+  // console.log(subtaskTitles);
 
-//w.Reconcile();
+  // console.log('Checking if the subtask already exists on this issue...');
+  // const jit = GetJiraIssueTag(exGithubIssue);
+  // console.log(`JIT: ${jit}`);
+
+  // const subtaskAlreadyExists = subtaskTitles.some(t => t.includes(jit));
+  // if(subtaskAlreadyExists) {
+  //   console.log('Subtask already exists! Returning...');
+  //   return;
+  // }
+
+  const subtaskData = await jc.AddSubtaskForGithubIssue(jiraId, exGithubIssue);
+  // console.log(jiraIssue);
+  // jiraIssue.fields.subtasks.forEach(t => {
+  //   console.log(t);
+  // });
+})();
+
+// app.listen(wwport, wwhost, () => {
+//   console.log(`Listening on ${wwhost}:${wwport}`);
+// });
