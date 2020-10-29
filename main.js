@@ -5,7 +5,8 @@ const common = require('./common');
 
 const { JiraClient, GetJiraIssueTag } = require('./jira-client');
 
-const OPEN_ACTION = 'opened';
+const OPENED_ACTION = 'opened';
+const EDITED_ACTION = 'edited';
 
 const wwport = process.env['WADSWORTH_PORT'] || 1337;
 const wwhost = process.env['WADSWORTH_HOST'] || '0.0.0.0';
@@ -32,7 +33,9 @@ app.post('/ghissuehook', async (req, res) => {
 
   // Only process newly opened issues
   // TODO: Handle edited title issues
-  if(req.body.action != OPEN_ACTION) {
+  if(ghi.action != OPENED_ACTION &&
+     ghi.action != EDITED_ACTION
+    ) {
     console.log(`Skip processing. Issue action not relevant: ${action}`);
     res.sendStatus(200);
     return;
