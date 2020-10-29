@@ -1,20 +1,11 @@
 const express = require('express');
 const app = express();
-// const fs = require('fs');
 
 const common = require('./common');
 
 const { JiraClient, GetJiraIssueTag } = require('./jira-client');
 
 const OPEN_ACTION = 'opened';
-
-// const exGithubIssueFile = process.env['GH_ISSUE_FILE'];
-// console.log(`exGithubIssueFile: ${exGithubIssueFile}`);
-
-// let exGithubIssue;
-// if(exGithubIssueFile) {
-//   exGithubIssue = JSON.parse(fs.readFileSync(exGithubIssueFile));
-// }
 
 const wwport = process.env['WADSWORTH_PORT'] || 1337;
 const wwhost = process.env['WADSWORTH_HOST'] || '0.0.0.0';
@@ -29,7 +20,6 @@ if(!jiraUser || !jiraPass) {
 }
 
 const jc = new JiraClient(jiraUser, jiraPass);
-
 
 app.use(express.json());
 
@@ -55,12 +45,6 @@ app.post('/ghissuehook', async (req, res) => {
     return;
   }
 
-////////////////////////////////////////////////////////////////////////////////
-// TODO:
-// 1) Fetch JIRA issue and determine if a subtask already exists for the gh event
-// 2) Create subtask for gh event if it doesn't already exist
-////////////////////////////////////////////////////////////////////////////////
-
   const jit = GetJiraIssueTag(ghi);
   const jiraId = trimmedIssueTitle.jiraId;
   const jiraIssue = await jc.FetchIssue(jiraId);
@@ -81,39 +65,6 @@ app.post('/ghissuehook', async (req, res) => {
 
   res.sendStatus(201);
 });
-
-// (async () => {
-//   console.log('GH issue trigged');
-
-  // const jiraId = 'MIG-357';
-  // const jiraIssue = await jc.FetchIssue(jiraId);
-
-  // // const subtaskAlreadyExists = jiraIssue.fields.subtasks
-  // //   .map(t => t.fields.summary)
-  // //   .some(name => name.includes(jiraIssueTag(ghIssue)));
-
-  // const subtaskTitles = jiraIssue.fields.subtasks
-  //   .map(t => t.fields.summary);
-
-  // console.log('Found subtask titles:');
-  // console.log(subtaskTitles);
-
-  // console.log('Checking if the subtask already exists on this issue...');
-  // const jit = GetJiraIssueTag(exGithubIssue);
-  // console.log(`JIT: ${jit}`);
-
-  // const subtaskAlreadyExists = subtaskTitles.some(t => t.includes(jit));
-  // if(subtaskAlreadyExists) {
-  //   console.log('Subtask already exists! Returning...');
-  //   return;
-  // }
-
-  // const subtaskData = await jc.AddSubtaskForGithubIssue(jiraId, exGithubIssue);
-  // console.log(jiraIssue);
-  // jiraIssue.fields.subtasks.forEach(t => {
-  //   console.log(t);
-  // });
-// })();
 
 app.listen(wwport, wwhost, () => {
   console.log(`Listening on ${wwhost}:${wwport}`);
