@@ -78,8 +78,14 @@ app.post('/ghissuehook', async (req, res) => {
       console.error('Closed issue, but subtask doesnt exist.');
       returnStatus = 500;
     } else {
-      console.log(`Transitioning task ${jiraId} to done.`)
-      await jc.TransitionTaskDone(jiraId);
+      const subtaskToClose = jiraIssue.fields.subtasks.find(t => {
+        return t.fields.summary.includes(jit);
+      });
+      console.log('subtask');
+      console.log(subtaskToClose);
+      console.log(`Found subtask to close with jiraId: ${subtaskToClose.key}`);
+      console.log(`Transitioning task ${subtaskToClose.key} to done.`);
+      await jc.TransitionTaskDone(subtaskToClose.key);
       returnStatus = 201;
     }
     break;

@@ -53,7 +53,7 @@ class JiraClient {
     console.log(`JiraClient::TransitionTaskDone(${jiraIssueId})`);
 
     const res = await this.requester.post(
-      issuePathForId(jiraIssueId),
+      `${issuePathForId(jiraIssueId)}/transitions`,
       createTransitionReqDoneBody()
     );
 
