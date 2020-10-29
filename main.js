@@ -33,7 +33,7 @@ const jc = new JiraClient(jiraUser, jiraPass);
 
 app.use(express.json());
 
-app.post('/ghissuehook', (req, res) => {
+app.post('/ghissuehook', aysnc (req, res) => {
   const ghi = req.body;
   const issueTitle = ghi.issue.title;
   const action = ghi.action;
