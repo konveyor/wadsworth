@@ -1,0 +1,13 @@
+---
+- name: Install git
+  become: true
+  dnf:
+    name: git
+    state: present
+
+# tasks file for wadsworth
+- name: "Checkout wadsworth"
+  git:
+    repo: "{{ repo_url }}"
+    dest: "{{ install_path }}"
+    version: "{{ version }}"

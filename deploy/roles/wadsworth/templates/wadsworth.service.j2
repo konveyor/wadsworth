@@ -1,0 +1,8 @@
+[Unit]
+Description=Wadsworth Service
+
+[Service]
+ExecStart={{ wadsworth_install_path }}/run.sh
+
+[Install]
+WantedBy=multi-user.target

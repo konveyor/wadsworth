@@ -1,0 +1,5 @@
+---
+# defaults file for wadsworth
+install_path: /srv/wadsworth
+repo_url: https://github.com/eriknelson/wadsworth
+version: main
