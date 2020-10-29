@@ -48,6 +48,20 @@ class JiraClient {
 
     return res.data;
   }
+
+  async TransitionTaskDone(jiraIssueId) {
+    console.log(`JiraClient::TransitionTaskDone(${jiraIssueId})`);
+
+    const res = await this.requester.post(
+      issuePathForId(jiraIssueId),
+      createTransitionReqDoneBody()
+    );
+
+    console.log('Got result:');
+    console.log(res);
+
+    return res.data;
+  }
 }
 
 function createSubtaskReqBody(summary, description, parentId) {
@@ -62,6 +76,15 @@ function createSubtaskReqBody(summary, description, parentId) {
       summary,
       description,
       issuetype: { id: SUBTASK_TYPE_ID },
+    }
+  }
+}
+
+function createTransitionReqDoneBody() {
+  const TRANSITION_DONE_ID = "41";
+  return {
+    "transition": {
+      "id": TRANSITION_DONE_ID,
     }
   }
 }

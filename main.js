@@ -7,6 +7,7 @@ const { JiraClient, GetJiraIssueTag } = require('./jira-client');
 
 const OPENED_ACTION = 'opened';
 const EDITED_ACTION = 'edited';
+const CLOSED_ACTION = 'closed';
 
 const wwport = process.env['WADSWORTH_PORT'] || 1337;
 const wwhost = process.env['WADSWORTH_HOST'] || '0.0.0.0';
@@ -31,10 +32,9 @@ app.post('/ghissuehook', async (req, res) => {
 
   console.log(ghi);
 
-  // Only process newly opened issues
-  // TODO: Handle edited title issues
   if(ghi.action != OPENED_ACTION &&
-     ghi.action != EDITED_ACTION
+     ghi.action != EDITED_ACTION &&
+     ghi.action != CLOSED_ACTION
     ) {
     console.log(`Skip processing. Issue action not relevant: ${action}`);
     res.sendStatus(200);
@@ -59,14 +59,36 @@ app.post('/ghissuehook', async (req, res) => {
   console.log(subtaskTitles);
 
   const subtaskAlreadyExists = subtaskTitles.some(t => t.includes(jit));
-  if(subtaskAlreadyExists) {
-    console.log('Subtask already exists! Returning...');
-    return;
+
+  let returnStatus = 200;
+
+  switch(ghi.action) {
+  case OPENED_ACTION:
+  case EDITED_ACTION:
+    if(subtaskAlreadyExists) {
+      console.log('Subtask already exists! Skipping.');
+    } else {
+      await jc.AddSubtaskForGithubIssue(jiraId, ghi);
+      returnStatus = 201;
+    }
+    break;
+  case CLOSED_ACTION:
+    if(!subtaskAlreadyExists) {
+      // Subtask has to exist on a jira ticket to close it
+      console.error('Closed issue, but subtask doesnt exist.');
+      returnStatus = 500;
+    } else {
+      console.log(`Transitioning task ${jiraId} to done.`)
+      await jc.TransitionTaskDone(jiraId);
+      returnStatus = 201;
+    }
+    break;
+  default:
+    console.error(`Unhandled action: ${ghi.action}`)
+    returnStatus = 500;
   }
 
-  const subtaskData = await jc.AddSubtaskForGithubIssue(jiraId, ghi);
-
-  res.sendStatus(201);
+  res.sendStatus(returnStatus);
 });
 
 app.listen(wwport, wwhost, () => {
