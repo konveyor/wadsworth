@@ -1,0 +1,2 @@
+install_path: /srv/wadsworth
+jira_creds_source_file: /srv/.jira-creds

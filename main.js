@@ -49,6 +49,8 @@ app.post('/ghissuehook', async (req, res) => {
   const jit = GetJiraIssueTag(ghi);
   const jiraId = trimmedIssueTitle.jiraId;
 
+  let returnStatus = 200;
+
   try {
     const jiraIssue = await jc.FetchIssue(jiraId);
 
@@ -59,8 +61,6 @@ app.post('/ghissuehook', async (req, res) => {
     console.log(subtaskTitles);
 
     const subtaskAlreadyExists = subtaskTitles.some(t => t.includes(jit));
-
-    let returnStatus = 200;
 
     switch(ghi.action) {
     case OPENED_ACTION:
