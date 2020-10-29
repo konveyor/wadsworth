@@ -3,7 +3,7 @@
 install_path: /srv/wadsworth
 jira_creds_source_file: /srv/wadsworth/jira-creds
 repo_url: https://github.com/eriknelson/wadsworth
-version: v0.1.0
+version: v0.2.0
 systemd_custom_install_path: /etc/systemd/system
 nodejs_version: "14.15.0"
 nodejs_download_file: "node-v{{ nodejs_version }}-linux-x64.tar.xz"
