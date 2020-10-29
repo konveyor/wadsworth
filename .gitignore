@@ -1,3 +1,6 @@
+inventory
+my_vars.yml
+
 # Logs
 *.txt
 logs
