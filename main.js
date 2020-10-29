@@ -61,7 +61,8 @@ app.post('/ghissuehook', async (req, res) => {
 // 2) Create subtask for gh event if it doesn't already exist
 ////////////////////////////////////////////////////////////////////////////////
 
-  const jit = GetJiraIssueTag(ghIssue);
+  const jit = GetJiraIssueTag(ghi);
+  const jiraId = trimmedIssueTitle.jiraId;
   const jiraIssue = await jc.FetchIssue(jiraId);
 
   const subtaskTitles = jiraIssue.fields.subtasks
