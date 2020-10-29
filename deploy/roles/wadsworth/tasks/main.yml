@@ -23,6 +23,7 @@
     become: true
     shell:
       cmd: "tar xf {{ nodejs_fq_download_path }} --strip-components=1 -C {{ nodejs_install_root }}"
+      creates: "{{ nodejs_install_root }}/bin/node"
   when: install_nodejs_tarball
 
 - name: Checkout wadsworth
@@ -36,24 +37,28 @@
     chdir: "{{ install_path }}"
     cmd: "PATH=$PATH:/{{ nodejs_install_root}}/bin npm install"
 
-- name: Install wadsworth.service
+- name: Install wadsworth start script
   template:
-    src: wadsworth.service.j2
-    dest: "{{ systemd_custom_install_path }}/wadsworth.service"
+    src: wadsworth.sh.j2
+    dest: "{{ start_script }}"
+    mode: "0770"
   register: service_install_result
 
 - name: Install wadsworth.service
+  become: true
   template:
     src: wadsworth.service.j2
     dest: "{{ systemd_custom_install_path }}/wadsworth.service"
   register: service_install_result
 
 - name: systemd daemon-reload if services changed
+  become: true
   when: service_install_result.changed
   systemd:
     daemon-reload: true
 
 - name: Start and enable wadsworth service
+  become: true
   systemd:
     name: wadsworth.service
     enabled: true

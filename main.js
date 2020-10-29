@@ -1,6 +1,6 @@
 const express = require('express');
 const app = express();
-const fs = require('fs');
+// const fs = require('fs');
 
 const common = require('./common');
 
@@ -33,7 +33,7 @@ const jc = new JiraClient(jiraUser, jiraPass);
 
 app.use(express.json());
 
-app.post('/ghissuehook', aysnc (req, res) => {
+app.post('/ghissuehook', async (req, res) => {
   const ghi = req.body;
   const issueTitle = ghi.issue.title;
   const action = ghi.action;
