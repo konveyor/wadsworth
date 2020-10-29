@@ -68,7 +68,9 @@ app.post('/ghissuehook', async (req, res) => {
       if(subtaskAlreadyExists) {
         console.log('Subtask already exists! Skipping.');
       } else {
+        console.log(`Adding subtask ${jit} to ${jiraId}...`);
         await jc.AddSubtaskForGithubIssue(jiraId, ghi);
+        console.log(`Successfully added subtask ${jit} to ${jiraId}`);
         returnStatus = 201;
       }
       break;
@@ -82,8 +84,9 @@ app.post('/ghissuehook', async (req, res) => {
           return t.fields.summary.includes(jit);
         });
         console.log(`Found subtask to close with jiraId: ${subtaskToClose.key}`);
-        console.log(`Transitioning task ${subtaskToClose.key} to done.`);
+        console.log(`Transitioning task ${subtaskToClose.key} to done...`);
         await jc.TransitionTaskDone(subtaskToClose.key);
+        console.log(`Successfully transitioned task ${subtaskToClose.key} to done`);
         returnStatus = 201;
       }
       break;
