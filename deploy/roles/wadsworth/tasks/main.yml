@@ -1,13 +1,36 @@
 ---
-- name: Install git
+- name: Install rpm deps
   become: true
   dnf:
-    name: git
+    name:
+    - git
+    - nodejs
     state: present
 
-# tasks file for wadsworth
-- name: "Checkout wadsworth"
+- name: Checkout wadsworth
   git:
     repo: "{{ repo_url }}"
     dest: "{{ install_path }}"
     version: "{{ version }}"
+
+- name: Install npm deps
+  shell:
+    chdir: "{{ install_path }}"
+    cmd: "npm install"
+
+- name: Install wadsworth.service
+  template:
+    src: wadsworth.service.j2
+    dest: "{{ systemd_custom_install_path }}/wadsworth.service"
+  register: service_install_result
+
+- name: systemd daemon-reload if services changed
+  when: service_install_result.changed
+  systemd:
+    daemon-reload: true
+
+- name: Start and enable wadsworth service
+  systemd:
+    name: wadsworth.service
+    enabled: true
+    state: started
