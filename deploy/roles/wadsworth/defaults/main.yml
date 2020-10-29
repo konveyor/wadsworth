@@ -4,3 +4,11 @@ install_path: /srv/wadsworth
 repo_url: https://github.com/eriknelson/wadsworth
 version: main
 systemd_custom_install_path: /etc/systemd/system
+nodejs_version: "14.15.0"
+nodejs_download_file: "node-v{{ nodejs_version }}-linux-x64.tar.xz"
+nodejs_download_dir: "/tmp"
+nodejs_fq_download_path: "{{ nodejs_download_dir }}/{{ nodejs_download_file }}"
+nodejs_download_url: "https://nodejs.org/dist/v14.15.0/{{ nodejs_download_file }}"
+nodejs_install_root: /opt/nodejs
+start_script: "{{ install_path }}/wadsworth.sh"
+install_nodejs_tarball: true

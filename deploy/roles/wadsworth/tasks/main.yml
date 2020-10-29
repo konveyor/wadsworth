@@ -4,8 +4,26 @@
   dnf:
     name:
     - git
-    - nodejs
     state: present
+
+- name: Install newer nodejs LTS from tarball
+  block:
+  - name: Download nodejs tarball
+    get_url:
+      url: "{{ nodejs_download_url }}"
+      dest: "{{ nodejs_fq_download_path }}"
+
+  - name: Create nodejs install root
+    become: true
+    file:
+      path: "{{ nodejs_install_root }}"
+      state: directory
+
+  - name: Extract nodejs tarball to install location
+    become: true
+    shell:
+      cmd: "tar xf {{ nodejs_fq_download_path }} --strip-components=1 -C {{ nodejs_install_root }}"
+  when: install_nodejs_tarball
 
 - name: Checkout wadsworth
   git:
@@ -16,7 +34,13 @@
 - name: Install npm deps
   shell:
     chdir: "{{ install_path }}"
-    cmd: "npm install"
+    cmd: "PATH=$PATH:/{{ nodejs_install_root}}/bin npm install"
+
+- name: Install wadsworth.service
+  template:
+    src: wadsworth.service.j2
+    dest: "{{ systemd_custom_install_path }}/wadsworth.service"
+  register: service_install_result
 
 - name: Install wadsworth.service
   template:
