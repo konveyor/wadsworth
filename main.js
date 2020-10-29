@@ -6,13 +6,15 @@ const common = require('./common');
 
 const { JiraClient, GetJiraIssueTag } = require('./jira-client');
 
-const exGithubIssueFile = process.env['GH_ISSUE_FILE'];
-console.log(`exGithubIssueFile: ${exGithubIssueFile}`);
+const OPEN_ACTION = 'opened';
 
-let exGithubIssue;
-if(exGithubIssueFile) {
-  exGithubIssue = JSON.parse(fs.readFileSync(exGithubIssueFile));
-}
+// const exGithubIssueFile = process.env['GH_ISSUE_FILE'];
+// console.log(`exGithubIssueFile: ${exGithubIssueFile}`);
+
+// let exGithubIssue;
+// if(exGithubIssueFile) {
+//   exGithubIssue = JSON.parse(fs.readFileSync(exGithubIssueFile));
+// }
 
 const wwport = process.env['WADSWORTH_PORT'] || 1337;
 const wwhost = process.env['WADSWORTH_HOST'] || '0.0.0.0';
@@ -20,21 +22,23 @@ const wwhost = process.env['WADSWORTH_HOST'] || '0.0.0.0';
 const jiraUser = process.env['JIRA_USER'];
 const jiraPass = process.env['JIRA_PASS'];
 
+
 if(!jiraUser || !jiraPass) {
   console.error(`ERROR: Must provide JIRA_USER and JIRA_PASS env vars`);
   return;
 }
 
-const OPEN_ACTION = 'opened';
+const jc = new JiraClient(jiraUser, jiraPass);
+
 
 app.use(express.json());
 
-app.post('/github-webhook-in', (req, res) => {
+app.post('/ghissuehook', (req, res) => {
   const ghi = req.body;
   const issueTitle = ghi.issue.title;
-  const issueN = ghi.issue.number;
-  const repoName = ghi.repository.name;
   const action = ghi.action;
+
+  console.log(ghi);
 
   // Only process newly opened issues
   // TODO: Handle edited title issues
@@ -57,14 +61,30 @@ app.post('/github-webhook-in', (req, res) => {
 // 2) Create subtask for gh event if it doesn't already exist
 ////////////////////////////////////////////////////////////////////////////////
 
+  const jit = GetJiraIssueTag(ghIssue);
+  const jiraIssue = await jc.FetchIssue(jiraId);
+
+  const subtaskTitles = jiraIssue.fields.subtasks
+    .map(t => t.fields.summary);
+
+  console.log('Subtask titles:')
+  console.log(subtaskTitles);
+
+  const subtaskAlreadyExists = subtaskTitles.some(t => t.includes(jit));
+  if(subtaskAlreadyExists) {
+    console.log('Subtask already exists! Returning...');
+    return;
+  }
+
+  const subtaskData = await jc.AddSubtaskForGithubIssue(jiraId, ghi);
+
   res.sendStatus(201);
 });
 
-(async () => {
-  console.log('GH issue trigged');
+// (async () => {
+//   console.log('GH issue trigged');
 
-  const jiraId = 'MIG-357';
-  const jc = new JiraClient(jiraUser, jiraPass);
+  // const jiraId = 'MIG-357';
   // const jiraIssue = await jc.FetchIssue(jiraId);
 
   // // const subtaskAlreadyExists = jiraIssue.fields.subtasks
@@ -87,13 +107,13 @@ app.post('/github-webhook-in', (req, res) => {
   //   return;
   // }
 
-  const subtaskData = await jc.AddSubtaskForGithubIssue(jiraId, exGithubIssue);
+  // const subtaskData = await jc.AddSubtaskForGithubIssue(jiraId, exGithubIssue);
   // console.log(jiraIssue);
   // jiraIssue.fields.subtasks.forEach(t => {
   //   console.log(t);
   // });
-})();
+// })();
 
-// app.listen(wwport, wwhost, () => {
-//   console.log(`Listening on ${wwhost}:${wwport}`);
-// });
+app.listen(wwport, wwhost, () => {
+  console.log(`Listening on ${wwhost}:${wwport}`);
+});
