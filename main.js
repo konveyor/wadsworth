@@ -48,7 +48,7 @@ app.post('/ghissuehook', async (req, res) => {
     return;
   }
 
-  const trimmedIssueTitle = common.ExtractTrimmedGHITitle(ghi);
+  const trimmedIssueTitle = common.ParseGHITitle(ghi);
   if(!trimmedIssueTitle) {
     console.log(`Skip processing. Did not match title: ${issueTitle}`);
     res.sendStatus(200);

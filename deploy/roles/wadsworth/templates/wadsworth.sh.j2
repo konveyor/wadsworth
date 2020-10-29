@@ -1,4 +1,5 @@
 #!/bin/bash
 _dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source ~/.secrets/jira-creds
+source {{ jira_creds_source_file }}
+export NODE_PATH=$NODE_PATH:{{ nodejs_install_root }}/lib/node_modules
 JIRA_USER="${JIRA_USER}" JIRA_PASS="${JIRA_PASS}" {{ nodejs_install_root }}/bin/node {{ install_path }}/main.js

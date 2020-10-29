@@ -2,7 +2,7 @@
 Description=Wadsworth Service
 
 [Service]
-ExecStart={{ start_script }}
+ExecStart=sh -c '{{ start_script }}'
 
 [Install]
 WantedBy=multi-user.target

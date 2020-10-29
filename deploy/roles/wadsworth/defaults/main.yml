@@ -1,6 +1,7 @@
 ---
 # defaults file for wadsworth
 install_path: /srv/wadsworth
+jira_creds_source_file: /srv/wadsworth/jira-creds
 repo_url: https://github.com/eriknelson/wadsworth
 version: main
 systemd_custom_install_path: /etc/systemd/system
