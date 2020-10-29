@@ -24,7 +24,7 @@ class JiraClient {
   }
 
   async FetchIssue(jiraIssueId) {
-    console.log(`JiraClient::Issue(${jiraIssueId})`);
+    console.log(`JiraClient::FetchIssue(${jiraIssueId})`);
     const res = await this.requester.get(issuePathForId(jiraIssueId));
     return res.data;
   }
@@ -43,9 +43,6 @@ class JiraClient {
       subtaskTitle, githubIssue.issue.html_url, jiraIssueId);
     const res = await this.requester.post(ISSUE_PATH, subtaskReqBody);
 
-    console.log('Got result:');
-    console.log(res);
-
     return res.data;
   }
 
@@ -56,9 +53,6 @@ class JiraClient {
       `${issuePathForId(jiraIssueId)}/transitions`,
       createTransitionReqDoneBody()
     );
-
-    console.log('Got result:');
-    console.log(res);
 
     return res.data;
   }
