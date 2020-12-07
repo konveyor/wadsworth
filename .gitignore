@@ -1,5 +1,6 @@
 inventory
 my_vars.yml
+credentials.json
 
 # Logs
 *.txt
