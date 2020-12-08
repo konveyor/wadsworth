@@ -13,6 +13,9 @@
 const githubClient = require('./gh-client')
 const googleDriveClient = require('./drive-client')
 const fs = require('fs')
+const csvParser = require("csv-parse")
+var xlsx = require('xlsx');
+
 
 MTC_ORG='konveyor'
 
@@ -61,6 +64,78 @@ class MTCSprintGuru {
         `
     }
 
+    // generates a human-readable summary when diff is given
+    diffSummaryReport(diff) {
+        return `
+There were ${diff.length} new issue(s) added to the sprint.
+
+Here's the list of new issues added:
+- ${diff.join("\n-")}
+        `
+    }
+
+    parseXslx(filePath) {
+        var obj = xlsx.readFile(filePath, {
+            type: 'binary'
+        });
+        var sheetNames = obj.SheetNames
+        return xlsx.utils.sheet_to_json(obj.Sheets[sheetNames[0]])
+    }
+    
+    // creates a new folder, if not exists already
+    ensureFolder(folderName) {
+        const that = this
+        return that.gDriveClient.getAllFolders()
+            .then(function(res) {
+                const existingFolder = res.folders.find(function(folder) {
+                    return folder.name == folderName
+                })
+                if (existingFolder) {
+                    return existingFolder
+                } else {
+                    return that.gDriveClient.createFolder(that.gDriveRootFolder, sprintName)
+                }
+            })
+    }
+
+    // downloads a file from given Google Drive folder
+    downloadFileFromFolder(folderName, fileName, destination) {
+        const that = this
+        return that.gDriveClient.getAllFolders()
+            .then(function(res) {
+                const folder = res.folders.find(function(folder) {
+                    return folder.name == folderName
+                })
+                return that.gDriveClient.getAllFiles(folder.id)
+            })
+            .then(function(res) {
+                const file = res.files.find(function(file) {
+                    return file.name == fileName
+                })
+                if (file) {
+                    return that.gDriveClient.downloadFile(file, destination)
+                } else {
+                    return fileName
+                }
+            })
+    }
+
+    // deletes existing file in a folder
+    deleteFile(folderId, fileName) {
+        const that = this
+        return that.gDriveClient.getAllFiles(folderId)
+            .then(function(res) {
+                const existingFile = res.files.find(function(file) {
+                    return file.name == fileName
+                })
+                if (existingFile) {
+                    return that.gDriveClient.deleteFile(existingFile.id)
+                } else {
+                    return fileName
+                }
+            })
+    }
+
     // archive recipe 
     // snapshots the latest sprint
     // finds all issues on the board and seggregates based on columns
@@ -100,37 +175,16 @@ class MTCSprintGuru {
                 }
                 return that.gDriveClient.authenticate()
             })
-            // Find the folder for current sprint
+            // Make sure a folder exists for this sprint
             .then(function(res) {
-                return that.gDriveClient.getAllFolders()
+                return that.ensureFolder(sprintName)
             })
-            // Create one if does not exist
+            // Make sure an existing archive doesn't exist
             .then(function(res) {
-                sprintFolder = res.folders.find(function(folder) {
-                    return folder.name == sprintName
-                })
-                if (sprintFolder) {
-                    return sprintFolder
-                } else {
-                    return that.gDriveClient.createFolder(that.gDriveRootFolder, sprintName)
-                }
+                sprintFolder = res
+                return that.deleteFile(res.id, archiveName)
             })
-            // Get files in the folder
-            .then(function(res) {
-                return that.gDriveClient.getAllFiles(res.id)
-            })
-            // delete existing file if exists
-            .then(function(res) {
-                const existingFile = res.files.find(function(file) {
-                    return file.name == archiveName
-                })
-                if (existingFile) {
-                    return that.gDriveClient.deleteFile(existingFile.id)
-                } else {
-                    return archiveName
-                }
-            })
-            // create new spreadsheet
+            // Dump arhive in a CSV
             .then(function(res) {
                 return new Promise(function(resolve, reject) {
                     fs.writeFile('/tmp/temp.csv', csv.map(e => e.join(",")).join("\n"), function(err) {
@@ -139,6 +193,7 @@ class MTCSprintGuru {
                     })
                 })
             })
+            // Upload archive to Google Drive
             .then(function(res) {
                 return that.gDriveClient.createSpreadsheet('/tmp/temp.csv', archiveName, sprintFolder.id)
             })
@@ -149,7 +204,63 @@ class MTCSprintGuru {
 
     // runs Diff recipe to find out delta between previous sprint
     runDiffRecipe() {
+        const that = this
+        var sprintName
+        that.ghClient.FetchAllProjects()
+            // Find out the right sprint board
+            .then(function(res) {
+                sprintName = that.getLatestProject(res).name
+                return that.gDriveClient.authenticate()
+            })
+            .then(function(res) {
+                return Promise.all(
+                    [
+                        that.downloadFileFromFolder(sprintName, 'initialArchive.csv', '/tmp'),
+                        that.downloadFileFromFolder(sprintName, 'finalArchive.csv', '/tmp')
+                    ]
+                )
+            })
+            .then(function(res) {
+                const parsed = res.map(function(file) {
+                    return that.parseXslx(file)
+                })
+                const oldIssues = [], newIssues = []
+                parsed[0].forEach(function(element) {
+                    csvColumns.forEach(function(col) {
+                        if (element[col]) oldIssues.push(element[col])
+                    })
+                });
+                parsed[1].forEach(function(element) {
+                    csvColumns.forEach(function(col) {
+                        if (element[col]) newIssues.push(element[col])
+                    })
+                });
+                const diff = newIssues.filter(function(x) {
+                    return !oldIssues.includes(x)
+                });
+                return Promise.all(
+                    [
+                        new Promise(function(resolve, reject) {
+                            fs.unlink('/tmp/initialArchive.csv.xlsx', function(err){
+                                if (err) reject(err)
+                                else resolve('success')
+                            })
+                        }),
+                        new Promise(function(resolve, reject) {
+                            fs.unlink('/tmp/finalArchive.csv.xlsx', function(err){
+                                if (err) reject(err)
+                                else resolve('success')
+                            })
+                        })
+                    ]
+                )
+            })
+            .then(function(res) {
 
+            })
+            .catch(function(res) {
+                console.log(res)
+            })
     }
 
     runNewSprintRecipe() {
@@ -157,3 +268,19 @@ class MTCSprintGuru {
     }
 }
 
+const GH_TOKEN = process.env.GH_TOKEN
+const GDRIVE_FOLDER = process.env.GDRIVE_FOLDER
+const args = process.argv.slice(2);
+
+const guru = new MTCSprintGuru(GH_TOKEN, GDRIVE_FOLDER)
+
+switch(args[0]) {
+    case "archive":
+        guru.runArchiveRecipe('initialArchive.csv')
+        break
+    case "diff":
+        guru.runDiffRecipe()
+        break
+    default:
+        console.log("No recipe selected")
+}

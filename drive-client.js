@@ -33,7 +33,6 @@ class GoogleDriveClient {
     }
 
     async createFolder(folderId=this.rootFolder, name) {
-        console.log("Creating folder "+name)
         return await this.gDrive.createFolder(
             folderId,
             name
@@ -52,6 +51,13 @@ class GoogleDriveClient {
     async deleteFile(fileId) {
         return await this.gDrive.removeFile(
             fileId
+        )
+    }
+
+    async downloadFile(fileResource, destination) {
+        return await this.gDrive.exportFile(
+            fileResource,
+            destination
         )
     }
 }
