@@ -16,9 +16,6 @@ const fs = require('fs')
 var xlsx = require('xlsx');
 const emailer = require('./emailer')
 
-
-MTC_ORG='fusor'
-
 const inProgressColumnRegex =  /.*(I|i)n *(P|p)rogress.*/
 const toDoColumnRegex =  /.*(T|t)o *(D|d)o.*/
 const doneColumnRegex =  /.*(D|d)one.*/
@@ -26,8 +23,8 @@ const doneColumnRegex =  /.*(D|d)one.*/
 const csvColumns = ["To Do", "In Progress", "Done"]
 
 class MTCSprintGuru {
-    constructor(ghToken, driveFolderId, smtpAddr, smtpUser, smtpPassword) {
-        this.ghClient = new githubClient.GithubClient(ghToken, MTC_ORG)
+    constructor(mtcOrg, ghToken, driveFolderId, smtpAddr, smtpUser, smtpPassword) {
+        this.ghClient = new githubClient.GithubClient(ghToken, mtcOrg)
         this.gDriveClient = new googleDriveClient.GoogleDriveClient(driveFolderId, './credentials.json')
         this.emailer = new emailer.Emailer(smtpAddr, smtpUser, smtpPassword)
         this.gDriveRootFolder = driveFolderId
@@ -370,6 +367,7 @@ New sprint board <a href='${boardLink}'><b>${newSprintName}</b></a> is created.<
     }
 }
 
+const MTC_ORG = process.env.MTC_ORG
 const GH_TOKEN = process.env.GH_TOKEN
 const GDRIVE_FOLDER = process.env.GDRIVE_FOLDER
 const SMTP_USER = process.env.SMTP_USER
@@ -379,7 +377,7 @@ const SMTP_RECEIVERS = process.env.SMTP_RECEIVERS
 const SMTP_SENDER = process.env.SMTP_SENDER
 const args = process.argv.slice(2);
 
-const guru = new MTCSprintGuru(GH_TOKEN, GDRIVE_FOLDER, SMTP_ADDR, SMTP_USER, SMTP_PASS)
+const guru = new MTCSprintGuru(MTC_ORG, GH_TOKEN, GDRIVE_FOLDER, SMTP_ADDR, SMTP_USER, SMTP_PASS)
 
 switch(args[0]) {
     case "archive":
@@ -394,5 +392,3 @@ switch(args[0]) {
     default:
         console.log("No recipe selected")
 }
-
-console.log((new Date() - new Date("2020-12-09T20:09:31Z")) / (1000 * 60 * 60 * 24))
