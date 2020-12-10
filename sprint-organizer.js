@@ -375,13 +375,14 @@ const SMTP_PASS = process.env.SMTP_PASS
 const SMTP_ADDR = process.env.SMTP_ADDR
 const SMTP_RECEIVERS = process.env.SMTP_RECEIVERS
 const SMTP_SENDER = process.env.SMTP_SENDER
+const ARCHIVE_NAME = process.env.ARCHIVE_NAME
 const args = process.argv.slice(2);
 
 const guru = new MTCSprintGuru(MTC_ORG, GH_TOKEN, GDRIVE_FOLDER, SMTP_ADDR, SMTP_USER, SMTP_PASS)
 
 switch(args[0]) {
     case "archive":
-        guru.runArchiveRecipe('initialArchive.csv')
+        guru.runArchiveRecipe(ARCHIVE_NAME)
         break
     case "diff":
         guru.runDiffRecipe(SMTP_SENDER,SMTP_RECEIVERS)
