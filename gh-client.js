@@ -31,8 +31,25 @@ class GithubClient {
         return `/projects/columns/${columnId}/cards`
     }
 
+    NewCard(contentUrl, note='') {
+        return {
+            content_url: contentUrl,
+            note: note,
+        }
+    }
+
     async fetch(url) {
         const res = await this.requester.get(url)
+        return res.data
+    }
+
+    async post(url, data) {
+        const res = await this.requester.post(url, data)
+        return res.data
+    }
+
+    async delete(url) {
+        const res = await this.requester.delete(url)
         return res.data
     }
 
@@ -47,6 +64,27 @@ class GithubClient {
     async FetchAllCardsInColumn(columnId) {
         return this.fetch(this.cardsAPIEndpoint(columnId))
     }
+
+    async CreateNewProject(projectName) {
+        return this.post(this.projectsAPIEndpoint(), {
+            name: projectName,
+        })
+    }
+
+    async DeleteProject(projectId) {
+        return this.delete(`projects/${projectId}`)
+    }
+
+    async AddCardToColumn(columnId, card) {
+        return this.post(this.cardsAPIEndpoint(columnId), card)
+    }
+
+    async AddColumnToProject(projectId, columnName) {
+        return this.post(this.columnsAPIEndpoint(projectId), {
+            name: columnName,
+        })
+    }
+
 }
 
 module.exports = { GithubClient };

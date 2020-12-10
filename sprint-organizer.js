@@ -13,35 +13,33 @@
 const githubClient = require('./gh-client')
 const googleDriveClient = require('./drive-client')
 const fs = require('fs')
-const csvParser = require("csv-parse")
 var xlsx = require('xlsx');
+const emailer = require('./emailer')
 
 
-MTC_ORG='konveyor'
+MTC_ORG='fusor'
 
 const inProgressColumnRegex =  /.*(I|i)n *(P|p)rogress.*/
 const toDoColumnRegex =  /.*(T|t)o *(D|d)o.*/
 const doneColumnRegex =  /.*(D|d)one.*/
 
-const startOfSprintArchiveName = 'Start'
-const endOfSprintArchiveName   = 'End'
-
 const csvColumns = ["To Do", "In Progress", "Done"]
 
 class MTCSprintGuru {
-    constructor(ghToken, driveFolderId) {
+    constructor(ghToken, driveFolderId, smtpAddr, smtpUser, smtpPassword) {
         this.ghClient = new githubClient.GithubClient(ghToken, MTC_ORG)
         this.gDriveClient = new googleDriveClient.GoogleDriveClient(driveFolderId, './credentials.json')
+        this.emailer = new emailer.Emailer(smtpAddr, smtpUser, smtpPassword)
         this.gDriveRootFolder = driveFolderId
     }
 
     // returns latest sprint based on number
-    getLatestProject(projects) {
+    getLatestProject(projects, offset=0) {
         return projects.filter(function(project) {
             return /MTC Sprint \d+/.test(project.name) 
         }).sort(function(a, b) {
             return b.name.localeCompare(a.name)
-        })[0]
+        })[offset]
     }
 
     filterColumn(columns, regex) {
@@ -65,21 +63,36 @@ class MTCSprintGuru {
     }
 
     // generates a human-readable summary when diff is given
-    diffSummaryReport(diff) {
+    diffSummaryReport(diff, rootFolder, sprintName) {
         return `
-There were ${diff.length} new issue(s) added to the sprint.
+There were ${diff.length} new issue(s) added to <b>${sprintName}</b>.<br>
+<br>
+Here's the list of new issues added:<br>
+- ${diff.join("</br>\n-")} <br>
+<br>
+Find both the snapshots of issues under <b>${sprintName}</b> folder here: <a href='https://drive.google.com/drive/u/0/folders/${rootFolder}'>https://drive.google.com/drive/u/0/folders/${rootFolder}</a>; 
 
-Here's the list of new issues added:
-- ${diff.join("\n-")}
-        `
+`
+    }
+
+    newSprintSummaryReport(newSprintName, boardLink, toDoIssues, inProgressIssues) {
+        return `
+New sprint board <a href='${boardLink}'><b>${newSprintName}</b></a> is created.<br>
+<br>
+<b>${toDoIssues.length}</b> To-Do issues and <b>${inProgressIssues.length}</b> In-Progress issues were copied to the new board.<br>
+`
     }
 
     parseXslx(filePath) {
         var obj = xlsx.readFile(filePath, {
-            type: 'binary'
+            type: 'base64'
         });
         var sheetNames = obj.SheetNames
         return xlsx.utils.sheet_to_json(obj.Sheets[sheetNames[0]])
+    }
+
+    isThisUTCDateOneDayOld(thatDate) {
+        return (new Date() - new Date(thatDate)) / (1000 * 60 * 60 * 24) >= 1
     }
     
     // creates a new folder, if not exists already
@@ -203,7 +216,7 @@ Here's the list of new issues added:
     }
 
     // runs Diff recipe to find out delta between previous sprint
-    runDiffRecipe() {
+    runDiffRecipe(sender, receivers) {
         const that = this
         var sprintName
         that.ghClient.FetchAllProjects()
@@ -219,6 +232,11 @@ Here's the list of new issues added:
                         that.downloadFileFromFolder(sprintName, 'finalArchive.csv', '/tmp')
                     ]
                 )
+            })
+            .then(function(res) {
+                return new Promise(function(resolve, reject) {
+                    setTimeout(resolve(res), 5000)
+                })
             })
             .then(function(res) {
                 const parsed = res.map(function(file) {
@@ -238,6 +256,11 @@ Here's the list of new issues added:
                 const diff = newIssues.filter(function(x) {
                     return !oldIssues.includes(x)
                 });
+                return that.emailer.sendEmail(
+                    sender, receivers, 
+                    `${sprintName} Report`, that.diffSummaryReport(diff, that.gDriveRootFolder, sprintName))
+            })
+            .then(function(res) {
                 return Promise.all(
                     [
                         new Promise(function(resolve, reject) {
@@ -255,32 +278,121 @@ Here's the list of new issues added:
                     ]
                 )
             })
-            .then(function(res) {
-
-            })
             .catch(function(res) {
                 console.log(res)
             })
     }
 
-    runNewSprintRecipe() {
-
+    runNewSprintRecipe(sender, receivers) {
+        const that = this
+        var inProgressCards, toDoCards, doneCards
+        var toDoColumn, inProgressColumn, doneColumn
+        var latestSprintName, newSprintName
+        var newProject
+        that.ghClient.FetchAllProjects()
+            // Find out the right sprint board
+            .then(function(res) {
+                var latestSprint = that.getLatestProject(res)
+                if (!that.isThisUTCDateOneDayOld(latestSprint.created_at)) {
+                    const newSprint = that.getLatestProject(res)
+                    latestSprint = that.getLatestProject(res, 1)
+                    latestSprintName = latestSprint.name
+                    return that.ghClient.DeleteProject(newSprint.id)
+                        .then(function(res){
+                            return that.ghClient.FetchAllColumnsInProject(latestSprint.id)
+                        })
+                        .catch(function(res) {
+                            return that.ghClient.FetchAllColumnsInProject(latestSprint.id)
+                        })
+                } else {
+                    latestSprintName = latestSprint.name
+                    return that.ghClient.FetchAllColumnsInProject(latestSprint.id)
+                }
+            })
+            // Find out all issues
+            .then(function(res) {
+                return Promise.all(
+                    [
+                        that.ghClient.FetchAllCardsInColumn(that.filterColumn(res, toDoColumnRegex).id),
+                        that.ghClient.FetchAllCardsInColumn(that.filterColumn(res, inProgressColumnRegex).id),
+                        that.ghClient.FetchAllCardsInColumn(that.filterColumn(res, doneColumnRegex).id)
+                    ]
+                )
+            })
+            // Prepare sheet data
+            .then(function(res) {
+                toDoCards = res[0], inProgressCards = res[1], doneCards = res[2]
+                const nextSprintNumber = parseInt(latestSprintName.match(/.*?(\d+).*/)[1]) + 1
+                newSprintName = `MTC Sprint ${nextSprintNumber}`
+                return that.ghClient.CreateNewProject(newSprintName)
+            })
+            .then(function(res) {
+                newProject = res
+                // we need the columns in a particular order
+                return that.ghClient.AddColumnToProject(newProject.id, 'To Do')
+                    .then(function(res) {
+                        toDoColumn = res
+                        return that.ghClient.AddColumnToProject(newProject.id, 'In Progress')
+                    })
+                    .then(function(res) {
+                        inProgressColumn = res
+                        return that.ghClient.AddColumnToProject(newProject.id, 'Done')
+                    })
+                    .then(function (res) {
+                        doneColumn = res
+                        return [toDoColumn, inProgressColumn, doneColumn]
+                    })
+            })
+            .then(function(res) {
+                const newToDoCards = toDoCards.map(function(card) {
+                    return that.ghClient.AddCardToColumn(toDoColumn.id, {
+                        'note': card.note || '',
+                        'content_url': card.content_url || '',
+                    })
+                })
+                const newInProgressCards = inProgressCards.map(function(card) {
+                    return that.ghClient.AddCardToColumn(inProgressColumn.id, {
+                        'note': card.note || '',
+                        'content_url': card.content_url || '',
+                    })
+                })
+                return Promise.all(newInProgressCards + newToDoCards)
+            })
+            .then(function(res) {
+                const report = that.newSprintSummaryReport(newSprintName, newProject.html_url, toDoCards, inProgressCards)
+                return that.emailer.sendEmail(
+                    sender, receivers,
+                    `${newSprintName} Report`, report)
+            })
+            .catch(function(res) {
+                console.log(res)
+            })
     }
 }
 
 const GH_TOKEN = process.env.GH_TOKEN
 const GDRIVE_FOLDER = process.env.GDRIVE_FOLDER
+const SMTP_USER = process.env.SMTP_USER
+const SMTP_PASS = process.env.SMTP_PASS
+const SMTP_ADDR = process.env.SMTP_ADDR
+const SMTP_RECEIVERS = process.env.SMTP_RECEIVERS
+const SMTP_SENDER = process.env.SMTP_SENDER
 const args = process.argv.slice(2);
 
-const guru = new MTCSprintGuru(GH_TOKEN, GDRIVE_FOLDER)
+const guru = new MTCSprintGuru(GH_TOKEN, GDRIVE_FOLDER, SMTP_ADDR, SMTP_USER, SMTP_PASS)
 
 switch(args[0]) {
     case "archive":
         guru.runArchiveRecipe('initialArchive.csv')
         break
     case "diff":
-        guru.runDiffRecipe()
+        guru.runDiffRecipe(SMTP_SENDER,SMTP_RECEIVERS)
+        break
+    case "new":
+        guru.runNewSprintRecipe(SMTP_SENDER,SMTP_RECEIVERS)
         break
     default:
         console.log("No recipe selected")
 }
+
+console.log((new Date() - new Date("2020-12-09T20:09:31Z")) / (1000 * 60 * 60 * 24))

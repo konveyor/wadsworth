@@ -12,6 +12,7 @@
     "google-spreadsheet": "^3.0.14",
     "googleapis": "^39.2.0",
     "node-google-drive": "^1.1.2",
+    "nodemailer": "^6.4.16",
     "xlsx": "^0.16.9"
   }
 }
