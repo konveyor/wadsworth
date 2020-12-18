@@ -105,6 +105,7 @@ class GithubClient {
     async AddColumnToProject(projectId, columnName) {
         return this.post(this.columnsAPIEndpoint(projectId), {
             name: columnName,
+            private: false,
         })
     }
 
