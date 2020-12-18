@@ -341,19 +341,39 @@ New sprint board <a href='${boardLink}'><b>${newSprintName}</b></a> is created.<
                     })
             })
             .then(function(res) {
-                const newToDoCards = toDoCards.map(function(card) {
-                    return that.ghClient.AddCardToColumn(toDoColumn.id, {
-                        'note': card.note || '',
-                        'content_url': card.content_url || '',
+                return Promise.all(
+                    toDoCards.map(function(card) {
+                        return that.ghClient.GetCardContent(card.content_url)
                     })
-                })
-                const newInProgressCards = inProgressCards.map(function(card) {
-                    return that.ghClient.AddCardToColumn(inProgressColumn.id, {
-                        'note': card.note || '',
-                        'content_url': card.content_url || '',
+                )
+            })
+            .then(function(res) {
+                return Promise.all(
+                    res.map(function(card) {
+
+                        return that.ghClient.AddCardToColumn(
+                            toDoColumn.id, 
+                            that.ghClient.NewCard(card.id, that.ghClient.GetCardType(card.url))
+                        )
                     })
-                })
-                return Promise.all(newInProgressCards + newToDoCards)
+                )
+            })
+            .then(function(res) {
+                return Promise.all(
+                    inProgressCards.map(function(card) {
+                        return that.ghClient.GetCardContent(card.content_url)
+                    })
+                )
+            })
+            .then(function(res) {
+                return Promise.all (
+                    res.map(function(card) {
+                        return that.ghClient.AddCardToColumn(
+                            inProgressColumn.id, 
+                            that.ghClient.NewCard(card.id, that.ghClient.GetCardType(card.url))
+                        )
+                    })
+                )
             })
             .then(function(res) {
                 const report = that.newSprintSummaryReport(newSprintName, newProject.html_url, toDoCards, inProgressCards)
