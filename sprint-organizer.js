@@ -65,7 +65,7 @@ class MTCSprintGuru {
 There were ${diff.length} new issue(s) added to <b>${sprintName}</b>.<br>
 <br>
 Here's the list of new issues added:<br>
-- ${diff.join("</br>\n-")} <br>
+- ${diff.join("<br>\n-")} <br>
 <br>
 Find both the snapshots of issues under <b>${sprintName}</b> folder here: <a href='https://drive.google.com/drive/u/0/folders/${rootFolder}'>https://drive.google.com/drive/u/0/folders/${rootFolder}</a>; 
 
