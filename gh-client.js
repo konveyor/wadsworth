@@ -37,7 +37,11 @@ class GithubClient {
     }
 
     NewCard(contentId, contentType, note='') {
-        
+        if (!contentId) {
+            return {
+                note: note || null,
+            }
+        }
         return {
             content_id: contentId || null,
             content_type: contentType || null,
@@ -71,6 +75,11 @@ class GithubClient {
         return res.data
     }
 
+    async patch(url, data) {
+        const res = await this.requester.patch(url, data)
+        return res
+    }
+
     async delete(url) {
         const res = await this.requester.delete(url)
         return res.data
@@ -94,6 +103,10 @@ class GithubClient {
         })
     }
 
+    async PatchProject(projectId, data) {
+        return this.patch(`/projects/${projectId}`, data)
+    }
+
     async DeleteProject(projectId) {
         return this.delete(`projects/${projectId}`)
     }
@@ -105,7 +118,6 @@ class GithubClient {
     async AddColumnToProject(projectId, columnName) {
         return this.post(this.columnsAPIEndpoint(projectId), {
             name: columnName,
-            private: false,
         })
     }
 

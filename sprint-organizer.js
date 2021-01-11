@@ -103,7 +103,7 @@ New sprint board <a href='${boardLink}'><b>${newSprintName}</b></a> is created.<
                 if (existingFolder) {
                     return existingFolder
                 } else {
-                    return that.gDriveClient.createFolder(that.gDriveRootFolder, sprintName)
+                    return that.gDriveClient.createFolder(that.gDriveRootFolder, folderName)
                 }
             })
     }
@@ -325,6 +325,12 @@ New sprint board <a href='${boardLink}'><b>${newSprintName}</b></a> is created.<
             })
             .then(function(res) {
                 newProject = res
+                return that.ghClient.PatchProject(res.id, {
+                    private: false,
+                    trackProgress: true,
+                })
+            })
+            .then(function(res) {
                 // we need the columns in a particular order
                 return that.ghClient.AddColumnToProject(newProject.id, 'To Do')
                     .then(function(res) {
@@ -350,7 +356,6 @@ New sprint board <a href='${boardLink}'><b>${newSprintName}</b></a> is created.<
             .then(function(res) {
                 return Promise.all(
                     res.map(function(card) {
-
                         return that.ghClient.AddCardToColumn(
                             toDoColumn.id, 
                             that.ghClient.NewCard(card.id, that.ghClient.GetCardType(card.url))
