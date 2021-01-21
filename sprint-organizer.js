@@ -149,7 +149,7 @@ New sprint board <a href='${boardLink}'><b>${newSprintName}</b></a> is created.<
     // archive recipe 
     // snapshots the latest sprint
     // finds all issues on the board and seggregates based on columns
-    runArchiveRecipe(archiveName) {
+        runArchiveRecipe(archiveName) {
         const that = this
         var inProgressCards, toDoCards, doneCards
         var csv = [
@@ -157,7 +157,7 @@ New sprint board <a href='${boardLink}'><b>${newSprintName}</b></a> is created.<
         ]
         var sprintName
         var sprintFolder
-        that.ghClient.FetchAllProjects()
+        return that.ghClient.FetchAllProjects()
             // Find out the right sprint board
             .then(function(res) {
                 sprintName = that.getLatestProject(res).name
@@ -209,6 +209,7 @@ New sprint board <a href='${boardLink}'><b>${newSprintName}</b></a> is created.<
             })
             .catch(function(res) {
                 console.log(res)
+                process.exit(1)
             })
     }
 
@@ -216,7 +217,7 @@ New sprint board <a href='${boardLink}'><b>${newSprintName}</b></a> is created.<
     runDiffRecipe(sender, receivers) {
         const that = this
         var sprintName
-        that.ghClient.FetchAllProjects()
+        return that.ghClient.FetchAllProjects()
             // Find out the right sprint board
             .then(function(res) {
                 sprintName = that.getLatestProject(res).name
@@ -277,6 +278,7 @@ New sprint board <a href='${boardLink}'><b>${newSprintName}</b></a> is created.<
             })
             .catch(function(res) {
                 console.log(res)
+                process.exit(1)
             })
     }
 
@@ -286,7 +288,7 @@ New sprint board <a href='${boardLink}'><b>${newSprintName}</b></a> is created.<
         var toDoColumn, inProgressColumn, doneColumn
         var latestSprintName, newSprintName
         var newProject
-        that.ghClient.FetchAllProjects()
+        return that.ghClient.FetchAllProjects()
             // Find out the right sprint board
             .then(function(res) {
                 var latestSprint = that.getLatestProject(res)
@@ -388,6 +390,7 @@ New sprint board <a href='${boardLink}'><b>${newSprintName}</b></a> is created.<
             })
             .catch(function(res) {
                 console.log(res)
+                process.exit(1)
             })
     }
 }
@@ -400,21 +403,41 @@ const SMTP_PASS = process.env.SMTP_PASS
 const SMTP_ADDR = process.env.SMTP_ADDR
 const SMTP_RECEIVERS = process.env.SMTP_RECEIVERS
 const SMTP_SENDER = process.env.SMTP_SENDER
-const ARCHIVE_NAME = process.env.ARCHIVE_NAME
-const args = process.argv.slice(2);
 
 const guru = new MTCSprintGuru(MTC_ORG, GH_TOKEN, GDRIVE_FOLDER, SMTP_ADDR, SMTP_USER, SMTP_PASS)
 
-switch(args[0]) {
-    case "archive":
-        guru.runArchiveRecipe(ARCHIVE_NAME)
-        break
-    case "diff":
-        guru.runDiffRecipe(SMTP_SENDER,SMTP_RECEIVERS)
-        break
-    case "new":
-        guru.runNewSprintRecipe(SMTP_SENDER,SMTP_RECEIVERS)
-        break
-    default:
-        console.log("No recipe selected")
-}
+var latestSprint, option;
+
+guru.ghClient.FetchAllProjects()
+    .then(function(res) {
+        latestSprint = guru.getLatestProject(res)
+        days = (new Date() - new Date(latestSprint.created_at)) / (1000 * 60 * 60 * 24)
+        if (days > 20) {
+            option = "new"
+            archiveName = "finalArchive.csv"
+        }
+        if (days < 6) {
+            option = "archive"
+            archiveName = "initialArchive.csv"
+        }
+        switch(option) {
+            case "new":
+                console.log("Calling new recipe")
+                return guru.runArchiveRecipe(archiveName)
+                    .then(function(res) {
+                        return guru.runDiffRecipe(SMTP_SENDER, SMTP_RECEIVERS)
+                    })
+                    .then(function(res) {
+                        return guru.runNewSprintRecipe(SMTP_SENDER,SMTP_RECEIVERS)
+                    })
+            case "archive":
+                console.log("Calling archive recipe")
+                return guru.runArchiveRecipe(archiveName)
+            default:
+                console.log("No recipe selected")
+        }
+    })
+    .catch(function(res) {
+        console.log(res)
+        process.exit(1)
+    })
