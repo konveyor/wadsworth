@@ -2,6 +2,11 @@ const axios = require('axios');
 
 GITHUB_API_ROOT="https://api.github.com"
 
+const CardTypes = {
+    ISSUE: "Issue",
+    PULL: "PullRequest",
+}
+
 class GithubClient {
     constructor(ghToken, org) {
         this.requester = axios.create({
@@ -31,11 +36,33 @@ class GithubClient {
         return `/projects/columns/${columnId}/cards`
     }
 
-    NewCard(contentUrl, note='') {
-        return {
-            content_url: contentUrl,
-            note: note,
+    NewCard(contentId, contentType, note='') {
+        if (!contentId) {
+            return {
+                note: note || null,
+            }
         }
+        return {
+            content_id: contentId || null,
+            content_type: contentType || null,
+            note: note || null,
+        }
+    }
+
+    GetCardType(contentUrl) {
+        if(this.isIssueUrl(contentUrl)) return CardTypes.ISSUE
+        if(this.isPullRequestUrl(contentUrl)) return CardTypes.PULL
+        return null
+    }
+
+    // Determines whether a URL points to an issue
+    isIssueUrl(url) {
+        return /.*issues.*/.test(url)
+    }
+
+    // Determines whether a URL points to a pull request
+    isPullRequestUrl(url) {
+        return /.*issues.*/.test(url)
     }
 
     async fetch(url) {
@@ -46,6 +73,11 @@ class GithubClient {
     async post(url, data) {
         const res = await this.requester.post(url, data)
         return res.data
+    }
+
+    async patch(url, data) {
+        const res = await this.requester.patch(url, data)
+        return res
     }
 
     async delete(url) {
@@ -71,6 +103,10 @@ class GithubClient {
         })
     }
 
+    async PatchProject(projectId, data) {
+        return this.patch(`/projects/${projectId}`, data)
+    }
+
     async DeleteProject(projectId) {
         return this.delete(`projects/${projectId}`)
     }
@@ -83,6 +119,10 @@ class GithubClient {
         return this.post(this.columnsAPIEndpoint(projectId), {
             name: columnName,
         })
+    }
+
+    async GetCardContent(url) {
+        return this.fetch(url)
     }
 
 }
